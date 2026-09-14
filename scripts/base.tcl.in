@@ -184,10 +184,17 @@ set cfg(vaddr_bits)             ${VADDR_BITS}
 proc color {fore text} {
     upvar #0 cfg cnfg
     if {$cnfg(en_xterm) eq 1} {
-        return [exec tput bold][exec tput setaf $fore]$text[exec tput sgr0]
-    } else {
-        return $text
+        # tput needs a usable TERM, which a batch job (sbatch, CI, nohup) does
+        # not have. Fall back to plain text instead of throwing: color is
+        # called from the error reporting path, so a failure here replaces the
+        # error being reported with a tput stack trace.
+        if {![catch {
+            set decorated [exec tput bold][exec tput setaf $fore]$text[exec tput sgr0]
+        }]} {
+            return $decorated
+        }
     }
+    return $text
 }
 
 set clr_flow 6
