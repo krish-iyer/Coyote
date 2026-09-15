@@ -155,6 +155,18 @@ if {$cfg(en_pr) eq 0} {
         }
         close_project
     }
+
+    if {$cfg(build_static) eq 1} {
+        # Flat DFX. inst_shell is an ordinary cell here, so there is no partial shell
+        # bitstream to write and nothing was recombined; shell_routed.dcp is
+        # configuration #0 with its vFPGAs in place, and that is what brings the card
+        # up. UltraScale+ only -- the CMake validation rejects every other
+        # architecture for this combination.
+        open_checkpoint "$dcp_dir/shell_routed.dcp"
+        write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
+        write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
+        close_project
+    }
 }
 
 ########################################################################################################

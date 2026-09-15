@@ -508,9 +508,19 @@ macro(validation_checks_hw)
         # User regs
         set(EN_USER_REG 0)
 
-        # Static synthesis does not have PR
-        if(BUILD_STATIC AND EN_PR) 
-            message(FATAL_ERROR "Static builds do not support PR.")
+        # A static build can carry vFPGA reconfiguration, but only as a flat DFX design.
+        # The shell is implemented here rather than linked against a routed and locked
+        # checkpoint that already declares it reconfigurable, so it is an ordinary cell
+        # and the vFPGAs are the only reconfigurable partitions. That is the same shape
+        # the Versal flow already uses, and the only shape available on devices where
+        # nested DFX does not exist.
+        if(BUILD_STATIC AND EN_PR)
+            if(NOT FPGA_ARCH STREQUAL "ultrascale_plus")
+                message(FATAL_ERROR "Flat vFPGA reconfiguration in the static build flow (BUILD_STATIC=1, EN_PR=1) is wired for UltraScale+ devices only.")
+            endif()
+            if(EN_SHELL_PBLOCK)
+                message(FATAL_ERROR "A static build with vFPGA reconfiguration (BUILD_STATIC=1, EN_PR=1) implements the shell in place, so the shell cannot also be a reconfigurable partition. Set EN_SHELL_PBLOCK=0.")
+            endif()
         endif()
 
         # Check if the shell pblock option is valid; the shell floorplan (and shell reconfiguration) can only be disabled when:
@@ -951,6 +961,11 @@ macro(gen_dep_lists)
         # More details can be found in gen_targets and the script flow_dyn_versal.tcl
         if(BUILD_SHELL AND FPGA_ARCH STREQUAL "ultrascale_plus")
             set(DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
+        elseif(BUILD_STATIC)
+            # Flat DFX: link.tcl already named the vFPGAs as the reconfigurable
+            # partitions, so the routed shell *is* configuration #0 and there is
+            # nothing to subdivide.
+            set(DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)
         else()
             set(DEP_DCP_LIST_COMP  ${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
             foreach(i RANGE ${NN_CONFIG})
@@ -980,6 +995,15 @@ macro(gen_dep_lists)
             set(DEP_DCP_LIST_BGEN  ${CMAKE_BINARY_DIR}/checkpoints/cyt_top.bit)
         else()
             set(DEP_DCP_LIST_BGEN  ${CMAKE_BINARY_DIR}/checkpoints/cyt_top.pdi)
+        endif()
+        # Flat DFX also emits a partial per vFPGA per configuration, alongside the
+        # full image that brings the card up.
+        if(EN_PR)
+            foreach(i RANGE ${NN_CONFIG})
+                foreach(j RANGE ${NN_REGIONS})
+                    list(APPEND DEP_DCP_LIST_BGEN ${CMAKE_BINARY_DIR}/bitstreams/config_${i}/vfpga_c${i}_${j}.bit)
+                endforeach()
+            endforeach()
         endif()
     else()
         if(BUILD_SHELL)

@@ -104,7 +104,11 @@ report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_b
 ########################################################################################################
 # LOCK & SUBDIVIDE DESIGN
 ########################################################################################################
-if {$cfg(build_static) eq 1} {
+# Only when the shell is the thing being frozen. Under flat DFX (BUILD_STATIC=1,
+# EN_PR=1) the reconfigurable partitions are the vFPGAs *inside* inst_shell, and the
+# routed shell above is configuration #0 -- blacking it out would throw that away,
+# and the locked static checkpoint it produces is for a build flow this one replaces.
+if {$cfg(build_static) eq 1 && $cfg(en_pr) eq 0} {
     update_design -cell inst_shell -black_box
     lock_design -level routing
     write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
@@ -120,8 +124,9 @@ if {$cfg(build_static) eq 1} {
 ########################################################################################################
 close_project
 
-# Sanity check for vFPGA floorplan
-if {$cfg(en_pr) eq 1 && $cfg(fplan_path) eq "0"} {
+# Sanity check for vFPGA floorplan. The flat flow cannot get this far without one --
+# link.tcl asks for it there, because that is where the vFPGAs become partitions.
+if {$cfg(en_pr) eq 1 && $cfg(build_static) eq 0 && $cfg(fplan_path) eq "0"} {
     puts ""
     puts "[color $clr_cmplt "**"]"
     puts "[color $clr_cmplt "** Shell compilation flow completed"]"
