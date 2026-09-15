@@ -41,14 +41,20 @@ set(EN_PR 1)
 set(N_CONFIG 2)
 set(N_REGIONS 1)
 
-# Target platform u55c
-set(FDEV_NAME "u55c")
-set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/example_fplan_u55c.xdc")
+# Target platform; u55c unless -DFDEV_NAME names another, with the floorplan
+# following the device name unless -DFPLAN_PATH overrides that too. A floorplan is
+# specific to both the device and the build flow, so it does not always follow from
+# the device alone -- example_fplan_u280_flat.xdc is for the flat flow
+# (BUILD_STATIC=1, EN_PR=1, EN_SHELL_PBLOCK=0) and has to be named explicitly.
+if(FDEV_NAME STREQUAL "0")
+    set(FDEV_NAME "u55c")
+endif()
+if(FPLAN_PATH STREQUAL "0")
+    set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/example_fplan_${FDEV_NAME}.xdc")
+endif()
 
-# Target platform v80 
-# set(FDEV_NAME "v80")
-# set(EN_SHELL_PBLOCK 0)
-# set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/example_fplan_v80.xdc")
+# The v80 needs EN_SHELL_PBLOCK=0 as well; Versal devices do not support nested DFX:
+#   cmake .. -DFDEV_NAME=v80 -DEN_SHELL_PBLOCK=0
 
 # Load the vector similarity kernels; note the C0_0, corresponding to Config 0, Region 0 and C1_0, corresponding to Config 1, Region 0
 validation_checks_hw()
